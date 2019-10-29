@@ -4,6 +4,8 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.content.Intent;
@@ -104,6 +106,9 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
     private ImageView mCarImage;
     private BatteryMeterView mBatteryMeterView;
     private BottomSheetBehavior mBottomSheetBehavior;
+    private RecyclerView mStationListView;
+    private StationRecyclerViewAdapter mStationAdapter;
+    private LinearLayoutManager mLayoutManager;
 
     private static final String FINE_LOCATION = Manifest.permission.ACCESS_FINE_LOCATION;
     private static final String COURSE_LOCATION = Manifest.permission.ACCESS_COARSE_LOCATION;
@@ -112,6 +117,8 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
     private static final LatLngBounds LAT_LNG_BOUNDS = new LatLngBounds(
             new LatLng(-40, -168), new LatLng(71, 136));
     private static final String NEARBY_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+
+    private List<Place.Field> placeFields;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,6 +142,21 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
 
         getLocationPermission();
 
+        placeFields = Arrays.asList(
+                Place.Field.ID,
+                Place.Field.NAME,
+                Place.Field.LAT_LNG,
+                Place.Field.WEBSITE_URI,
+                Place.Field.ADDRESS,
+                Place.Field.VIEWPORT,
+                Place.Field.RATING,
+                Place.Field.PHONE_NUMBER,
+                Place.Field.PHOTO_METADATAS,
+                Place.Field.OPENING_HOURS,
+                Place.Field.PRICE_LEVEL,
+                Place.Field.USER_RATINGS_TOTAL
+        );
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         //SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
         //        .findFragmentById(R.id.map);
@@ -149,6 +171,19 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
             }
         });
         stationsNearby = new ArrayList<>();
+
+        // TODO: Debug button
+        Button debug = findViewById(R.id.debug_btn);
+        debug.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "onClick: There are "+ mStationAdapter.getItemCount());
+                for (StationModel station: stationsNearby){
+                    Log.d(TAG, "onClick: " + station.getPlaceHandle().getPhotoMetadatas());
+                }
+                mStationAdapter.notifyDataSetChanged();
+            }
+        });
     }
 
 
@@ -179,6 +214,7 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
             mMap.getUiSettings().setMyLocationButtonEnabled(false);
 
             init();
+            initStationRecyclerView();
             hideSoftKeyboard();
         }
     }
@@ -237,6 +273,7 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
                 }
             }
         });
+
     }
 
     private void geoLocate(){
@@ -265,6 +302,15 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
         }
     }
 
+    private void initStationRecyclerView(){
+        // TODO: init recycle
+        mStationListView = findViewById(R.id.station_recycle_layout);
+        mLayoutManager = new LinearLayoutManager(this);
+        mStationAdapter = new StationRecyclerViewAdapter(mBottomSheetBehavior, this, stationsNearby);
+        mStationListView.setAdapter(mStationAdapter);
+        mStationListView.setLayoutManager(mLayoutManager);
+        Log.d(TAG, "initStationRecyclerView: Initilized");
+    }
 
     private void getDeviceLocation(){
         Log.d(TAG, "getDeviceLocation: getting the devices current location");
@@ -283,6 +329,8 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
                             Location currentLocation = (Location) task.getResult();
 
                             getStationsNearBy(currentLocation);
+                            mStationAdapter.notifyDataSetChanged();
+
 
                             moveCamera(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()),
                                     DEFAULT_ZOOM, null);
@@ -325,13 +373,13 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
                     JSONArray c = response.getJSONArray("results");
                     for(int i = 0; i < c.length(); i++){
                         StationModel thatStation = StationModel.fromJSON(c.getJSONObject(i));
-                        Log.d(TAG, "onSuccess: " + thatStation.getPlace_id());
                         String snippet = thatStation.toString();
                         MarkerOptions options = new MarkerOptions()
                                 .position(thatStation.getLocation())
                                 .title(thatStation.getName())
                                 .snippet(snippet);
                         mMap.addMarker(options);
+                        patchPlaceInfoForStations(thatStation);
                         stationsNearby.add(thatStation);
                     }
                     Log.d(TAG, "Success! JSON count: " + stationsNearby.size());
@@ -347,6 +395,37 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
             }
 
 
+        });
+    }
+
+    private void patchPlaceInfoForStations(final StationModel someStation){
+        //TODO: patch place info
+        final String placeId = someStation.getPlace_id();
+
+        // Construct a request object, passing the place ID and fields array.
+        FetchPlaceRequest request = FetchPlaceRequest.builder(placeId, placeFields)
+                .build();
+
+        // Add a listener to handle the response.
+        mPlacesClient.fetchPlace(request).addOnSuccessListener(new OnSuccessListener<FetchPlaceResponse>() {
+            @Override
+            public void onSuccess(FetchPlaceResponse response) {
+                Place place = response.getPlace();
+                someStation.setPlaceHandle(place);
+                Log.d(TAG, "Place set" + someStation.getIcon());
+                mStationAdapter.notifyDataSetChanged();
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+            if (e instanceof ApiException) {
+                ApiException apiException = (ApiException) e;
+                int statusCode = apiException.getStatusCode();
+                // Handle error with given status code.
+                Log.e(TAG, "Place fetch failed " + e.getMessage());
+                Toast.makeText(getApplicationContext(), "Place fetch failed" + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+            }
         });
     }
 
@@ -450,21 +529,6 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
 
             final AutocompletePrediction item = mPlaceAutocompleteAdapter.getItem(i);
             final String placeId = item.getPlaceId();
-
-            List<Place.Field> placeFields = Arrays.asList(
-                    Place.Field.ID,
-                    Place.Field.NAME,
-                    Place.Field.LAT_LNG,
-                    Place.Field.WEBSITE_URI,
-                    Place.Field.ADDRESS,
-                    Place.Field.VIEWPORT,
-                    Place.Field.RATING,
-                    Place.Field.PHONE_NUMBER,
-                    Place.Field.PHOTO_METADATAS,
-                    Place.Field.OPENING_HOURS,
-                    Place.Field.PRICE_LEVEL,
-                    Place.Field.USER_RATINGS_TOTAL
-            );
 
             // Construct a request object, passing the place ID and fields array.
             FetchPlaceRequest request = FetchPlaceRequest.builder(placeId, placeFields)
