@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">MapE</string>
     <string name="title_activity_maps">Map</string>
-    <string name="map_e">M A P - E</string>
+    <string name="map_e">MAP-E</string>
 
     <string-array name="CarModels">
         <item>Choose Your Car Model</item>
@@ -11,7 +11,6 @@
         <item>BMW i3</item>
         <item>Other</item>
     </string-array>
-
 
 
 </resources>

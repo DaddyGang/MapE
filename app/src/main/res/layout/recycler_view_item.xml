@@ -7,6 +7,7 @@
     android:layout_margin="10dp"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:paddingBottom="10dp"
     android:id="@+id/station_recycle_item_layout">
 
   <ImageView
@@ -97,9 +98,9 @@
       android:background="@drawable/comfirm_btn_layout"
       android:text="More Info"
       android:textColor="@color/colorDeco2"
-      app:layout_constraintStart_toEndOf="@id/url_container"
+      app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintTop_toBottomOf="@id/station_address"
-      android:layout_margin="8dp"/>
+      android:layout_margin="8dp" />
 
   <TextView
       android:id="@+id/station_status"

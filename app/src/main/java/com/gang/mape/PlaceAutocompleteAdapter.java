@@ -120,9 +120,10 @@ public class PlaceAutocompleteAdapter extends ArrayAdapter<AutocompletePredictio
         Log.d(TAG, "getAutoComplete: ");
         // Use the builder to create a FindAutocompletePredictionsRequest.
         FindAutocompletePredictionsRequest request = FindAutocompletePredictionsRequest.builder()
-                .setTypeFilter(TypeFilter.ADDRESS)
+                .setTypeFilter(TypeFilter.REGIONS)
                 .setSessionToken(token)
                 .setQuery(constraint.toString())
+                .setCountry("USA")
                 .build();
 
         placesClient.findAutocompletePredictions(request).addOnSuccessListener(new OnSuccessListener<FindAutocompletePredictionsResponse>() {

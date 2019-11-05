@@ -55,7 +55,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="@font/ubuntu_light"
-        android:letterSpacing="0.4"
+        android:letterSpacing="0.8"
         android:text="@string/map_e"
         android:textColor="@color/colorAccent"
         android:textScaleX="1.1"

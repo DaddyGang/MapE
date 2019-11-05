@@ -167,23 +167,32 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
         buttonExpand.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                switch (mBottomSheetBehavior.getState()){
+                    case BottomSheetBehavior.STATE_HIDDEN:
+                        mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                        break;
+                    case BottomSheetBehavior.STATE_EXPANDED:
+                        mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+                        break;
+                    case BottomSheetBehavior.STATE_COLLAPSED:
+                        mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                    default: mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_HALF_EXPANDED);
+                }
             }
         });
         stationsNearby = new ArrayList<>();
 
-        // TODO: Debug button
-        Button debug = findViewById(R.id.debug_btn);
-        debug.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "onClick: There are "+ mStationAdapter.getItemCount());
-                for (StationModel station: stationsNearby){
-                    Log.d(TAG, "onClick: " + station.getPlaceHandle().getPhotoMetadatas());
-                }
-                mStationAdapter.notifyDataSetChanged();
-            }
-        });
+//        Button debug = findViewById(R.id.debug_btn);
+//        debug.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                Log.d(TAG, "onClick: There are "+ mStationAdapter.getItemCount());
+//                for (StationModel station: stationsNearby){
+//                    Log.d(TAG, "onClick: " + station.getPlaceHandle().getPhotoMetadatas().get(0));
+//                }
+//                mStationAdapter.notifyDataSetChanged();
+//            }
+//        });
     }
 
 
@@ -303,7 +312,7 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
     }
 
     private void initStationRecyclerView(){
-        // TODO: init recycle
+        // init recycle
         mStationListView = findViewById(R.id.station_recycle_layout);
         mLayoutManager = new LinearLayoutManager(this);
         mStationAdapter = new StationRecyclerViewAdapter(mBottomSheetBehavior, this, stationsNearby);
@@ -328,7 +337,7 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
                             Log.d(TAG, "onComplete: found location!");
                             Location currentLocation = (Location) task.getResult();
 
-                            getStationsNearBy(currentLocation);
+                            getStationsNearBy(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()));
                             mStationAdapter.notifyDataSetChanged();
 
 
@@ -347,15 +356,15 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
         }
     }
 
-    private void getStationsNearBy(Location location){
+    private void getStationsNearBy(LatLng latLng){
         // TODO: get stations near by
         Log.d(TAG, "getStationsNearBy: ");
         RequestParams params = new RequestParams();
-        params.put("location", location.getLatitude() + "," + location.getLongitude());
+        params.put("location", latLng.latitude + "," + latLng.longitude);
         params.put("radius", "3000");
         // params.put("type", "gas_station");
         params.put("keyword", "charge");
-        params.put("key", getResources().getString(R.string.google_maps_key));
+        params.put("key", getString(R.string.google_maps_key));
         AsyncHttpClient client = new AsyncHttpClient();
         client.get(NEARBY_SEARCH_URL, params, new JsonHttpResponseHandler(){
 
@@ -370,17 +379,14 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
             public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
                 super.onSuccess(statusCode, headers, response);
                 try{
+                    mMap.clear();
                     JSONArray c = response.getJSONArray("results");
                     for(int i = 0; i < c.length(); i++){
-                        StationModel thatStation = StationModel.fromJSON(c.getJSONObject(i));
-                        String snippet = thatStation.toString();
-                        MarkerOptions options = new MarkerOptions()
-                                .position(thatStation.getLocation())
-                                .title(thatStation.getName())
-                                .snippet(snippet);
-                        mMap.addMarker(options);
+                        StationModel thatStation = StationModel.fromJSON(c.getJSONObject(i), mMap);
                         patchPlaceInfoForStations(thatStation);
                         stationsNearby.add(thatStation);
+                        mStationAdapter.notifyDataSetChanged();
+
                     }
                     Log.d(TAG, "Success! JSON count: " + stationsNearby.size());
                 } catch (JSONException e){
@@ -412,6 +418,12 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
             public void onSuccess(FetchPlaceResponse response) {
                 Place place = response.getPlace();
                 someStation.setPlaceHandle(place);
+                String snippet = someStation.toString();
+                MarkerOptions options = new MarkerOptions()
+                        .position(someStation.getLocation())
+                        .title(someStation.getName())
+                        .snippet(snippet);
+                mMap.addMarker(options);
                 Log.d(TAG, "Place set" + someStation.getIcon());
                 mStationAdapter.notifyDataSetChanged();
             }
@@ -429,7 +441,7 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
         });
     }
 
-    private void moveCamera(LatLng latLng, float zoom, PlaceInfo aPlace){
+    public void moveCamera(LatLng latLng, float zoom, PlaceInfo aPlace){
         Log.d(TAG, "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude );
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
 
@@ -542,6 +554,11 @@ public class MapsActivity extends FragmentActivity implements CarSelectBottomShe
                     grabPlace(place);
                     Log.i(TAG, "Place found: " + place);
                     moveCamera(new LatLng(mPlace.getLatLng().latitude, mPlace.getLatLng().longitude), DEFAULT_ZOOM, mPlace);
+                    // TODO: auto complete on click listener
+                    stationsNearby.clear();
+                    getStationsNearBy(mPlace.getLatLng());
+                    mStationAdapter.notifyDataSetChanged();
+
                     Log.i(TAG, "Place stored: " + mPlace.toString());
 
                     hideSoftKeyboard();

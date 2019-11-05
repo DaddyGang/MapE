@@ -8,13 +8,14 @@ import com.google.android.libraries.places.api.model.OpeningHours;
 import com.google.android.libraries.places.api.model.PhotoMetadata;
 import com.google.android.libraries.places.api.model.Place;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Created by User on 10/2/2017.
  */
 
-public class PlaceInfo {
+public class PlaceInfo implements Serializable {
 
     private String name;
     private String address;
